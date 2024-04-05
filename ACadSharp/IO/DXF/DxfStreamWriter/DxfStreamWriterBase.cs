@@ -86,6 +86,11 @@ namespace ACadSharp.IO.DXF
 			}
 		}
 
+		public void Write(int code, Color value, DxfClassMap map)
+		{
+			throw new NotImplementedException();
+		}
+
 		/// <inheritdoc/>
 		public abstract void Dispose();
 
