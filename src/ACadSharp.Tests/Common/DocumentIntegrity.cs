@@ -13,6 +13,8 @@ namespace ACadSharp.Tests.Common
 {
 	public class DocumentIntegrity
 	{
+		public bool IsDxf { get; set; }
+
 		public ITestOutputHelper Output { get; set; }
 
 		private const string _folder = "../../../../ACadSharp.Tests/Data/";
@@ -24,7 +26,7 @@ namespace ACadSharp.Tests.Common
 			this.Output = output;
 		}
 
-		public void AssertTableHirearchy(CadDocument doc)
+		public void AssertTableHierarchy(CadDocument doc)
 		{
 			//Assert all the tables in the doc
 			this.assertTable(doc, doc.AppIds);
@@ -74,7 +76,8 @@ namespace ACadSharp.Tests.Common
 				Assert.NotNull(br.BlockEntity.Document);
 				this.documentObjectNotNull(doc, br.BlockEntity);
 
-				Assert.True(br.Handle == br.BlockEntity.Owner.Handle, "Block entity owner doesn't mach");
+				Assert.True(br.Handle == br.BlockEntity.Owner.Handle, "Block entity owner doesn't match");
+				Assert.NotNull(br.BlockEntity.Document);
 
 				Assert.NotNull(br.BlockEnd.Document);
 				this.documentObjectNotNull(doc, br.BlockEnd);
@@ -91,7 +94,7 @@ namespace ACadSharp.Tests.Common
 #if !NETFRAMEWORK
 			this._document = doc;
 			CadDocumentTree tree = System.Text.Json.JsonSerializer.Deserialize<CadDocumentTree>(
-				File.ReadAllText(Path.Combine(_folder, $"{doc.Header.Version}_tree.json"))
+				File.ReadAllText(Path.Combine(_folder, $"sample_{doc.Header.Version}_tree.json"))
 				);
 
 			if (doc.Header.Version > ACadVersion.AC1021)
@@ -114,7 +117,7 @@ namespace ACadSharp.Tests.Common
 #if !NETFRAMEWORK
 			this._document = doc;
 			CadDocumentTree tree = System.Text.Json.JsonSerializer.Deserialize<CadDocumentTree>(
-						File.ReadAllText(Path.Combine(_folder, $"{doc.Header.Version}_tree.json"))
+						File.ReadAllText(Path.Combine(_folder, $"sample_{doc.Header.Version}_tree.json"))
 						);
 
 			this.assertTableTree(doc.BlockRecords, tree.BlocksTable);
@@ -157,6 +160,11 @@ namespace ACadSharp.Tests.Common
 					continue;
 
 				TableEntryNode child = node.GetEntry(entry.Handle);
+				if (child == null && (entry.Name.StartsWith("*U") || entry.Name.StartsWith("*T")))
+				{
+					return;
+				}
+
 				this.notNull(child, $"[{table}] Entry name: {entry.Name}");
 
 				this.assertObject(entry, child);
@@ -183,12 +191,31 @@ namespace ACadSharp.Tests.Common
 
 			foreach (R child in node.Entries)
 			{
+				//Blocks are not saved in the dwg file
+				if (child.Name == "*D22" || child.Name == "*D23")
+				{
+					continue;
+				}
+
+				if (this._document.Header.Version < ACadVersion.AC1024 &&
+					child is BlockRecordNode tmp &&
+					tmp.IsDynamic)
+				{
+					continue;
+				}
+
 				Assert.True(table.TryGetValue(child.Name, out T entry), $"Entry not found: {child.Name}");
 				this.assertObject(entry, child);
 
 				switch (entry)
 				{
 					case BlockRecord record when child is BlockRecordNode blockRecordNode:
+						if (record.Name.StartsWith("*T"))
+						{
+							//The dynamic block instance for tables are generated on the spot and not saved.
+							break;
+						}
+
 						this.assertCollectionTree(record.Entities, blockRecordNode.Entities);
 						break;
 					case Layer layer when child is LayerNode layerNode:
@@ -235,6 +262,13 @@ namespace ACadSharp.Tests.Common
 				Assert.Equal(entity.IsInvisible, node.IsInvisible);
 				Assert.Equal(entity.LineWeight, node.LineWeight);
 			}
+
+			switch (entity)
+			{
+				case Dimension dim:
+					assertDimensionProperties(dim, node);
+					break;
+			}
 		}
 
 		private void assertLayer(Layer layer, LayerNode node)
@@ -277,6 +311,16 @@ namespace ACadSharp.Tests.Common
 			CadObject cobj = doc.GetCadObject(o.Handle);
 			this.notNull(cobj, $"Object of type {typeof(T)} | {o.Handle} not found in the document");
 			this.notNull(cobj.Document, $"Document is null for object with handle: {cobj.Handle}");
+		}
+
+		private void assertDimensionProperties(Dimension dimension, EntityNode node)
+		{
+#if !NETFRAMEWORK
+			if (node.Properties.TryGetValue(nameof(dimension.Measurement), out object measurement))
+			{
+				Assert.Equal(((System.Text.Json.JsonElement)measurement).GetDouble(), dimension.Measurement, 4);
+			}
+#endif
 		}
 
 		private void notNull<T>(T o, string info = null)

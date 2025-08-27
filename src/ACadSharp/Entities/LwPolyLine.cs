@@ -1,6 +1,7 @@
 ﻿using ACadSharp.Attributes;
 using CSMath;
 using CSUtilities.Extensions;
+using System;
 using System.Collections.Generic;
 
 namespace ACadSharp.Entities
@@ -116,6 +117,24 @@ namespace ACadSharp.Entities
 			}
 
 			return new BoundingBox(min, max);
+		}
+
+		/// <inheritdoc/>
+		public override void ApplyTransform(Transform transform)
+		{
+			var newNormal = this.transformNormal(transform, this.Normal);
+
+			this.getWorldMatrix(transform, this.Normal, newNormal, out Matrix3 transOW, out Matrix3 transWO);
+
+			foreach (var vertex in this.Vertices)
+			{
+				XYZ v = transOW * vertex.Location.Convert<XYZ>();
+				v = transform.ApplyTransform(v);
+				v = transWO * v;
+				vertex.Location = v.Convert<XY>();
+			}
+
+			this.Normal = newNormal;
 		}
 	}
 }

@@ -5,6 +5,8 @@ using ACadSharp.Blocks;
 using ACadSharp.Entities;
 using System.Linq;
 using System.Collections.Generic;
+using ACadSharp.Objects.Evaluations;
+using CSMath;
 
 namespace ACadSharp.Tables
 {
@@ -17,18 +19,8 @@ namespace ACadSharp.Tables
 	/// </remarks>
 	[DxfName(DxfFileToken.TableBlockRecord)]
 	[DxfSubClass(DxfSubclassMarker.BlockRecord)]
-	public class BlockRecord : TableEntry
+	public class BlockRecord : TableEntry, IGeometricEntity
 	{
-		/// <summary>
-		/// Default block record name for the model space
-		/// </summary>
-		public const string ModelSpaceName = "*Model_Space";
-
-		/// <summary>
-		/// Default block record name for the paper space
-		/// </summary>
-		public const string PaperSpaceName = "*Paper_Space";
-
 		/// <summary>
 		/// Create an instance of the *Model_Space block.
 		/// </summary>
@@ -69,29 +61,42 @@ namespace ACadSharp.Tables
 			}
 		}
 
-		/// <inheritdoc/>
-		public override ObjectType ObjectType => ObjectType.BLOCK_HEADER;
-
-		/// <inheritdoc/>
-		public override string ObjectName => DxfFileToken.TableBlockRecord;
-
-		/// <inheritdoc/>
-		public override string SubclassMarker => DxfSubclassMarker.BlockRecord;
+		/// <summary>
+		/// Attribute definitions in this block
+		/// </summary>
+		public IEnumerable<AttributeDefinition> AttributeDefinitions
+		{
+			get
+			{
+				return this.Entities.OfType<AttributeDefinition>();
+			}
+		}
 
 		/// <summary>
-		/// Block insertion units
+		/// End block entity for this Block record.
 		/// </summary>
-		// [DxfCodeValue(70)]	//Table entry uses flags and has the same code but dwg saves also the block record flags
-		public UnitsType Units { get; set; }
-
-		//This seems to be the right way to set the flags for the block records
-		public new BlockTypeFlags Flags { get { return this.BlockEntity.Flags; } set { this.BlockEntity.Flags = value; } }
+		public BlockEnd BlockEnd
+		{
+			get { return this._blockEnd; }
+			internal set
+			{
+				this._blockEnd = value;
+				this._blockEnd.Owner = this;
+			}
+		}
 
 		/// <summary>
-		/// Specifies whether the block can be exploded.
+		/// Block entity for this record
 		/// </summary>
-		[DxfCodeValue(DxfReferenceType.Optional, 280)]
-		public bool IsExplodable { get; set; }
+		public Block BlockEntity
+		{
+			get { return this._blockEntity; }
+			internal set
+			{
+				this._blockEntity = value;
+				this._blockEntity.Owner = this;
+			}
+		}
 
 		/// <summary>
 		/// Specifies the scaling allowed for the block.
@@ -100,13 +105,88 @@ namespace ACadSharp.Tables
 		public bool CanScale { get; set; } = true;
 
 		/// <summary>
-		/// DXF: Binary data for bitmap preview.
+		/// Entities owned by this block.
 		/// </summary>
 		/// <remarks>
-		/// Optional
+		/// Entities with an owner cannot be added to another block.
 		/// </remarks>
-		[DxfCodeValue(DxfReferenceType.Optional, 310)]
-		public byte[] Preview { get; set; }
+		public CadObjectCollection<Entity> Entities { get; private set; }
+
+		/// <summary>
+		/// Gets the evaluation graph for this block if it has dynamic properties attached to it.
+		/// </summary>
+		public EvaluationGraph EvaluationGraph
+		{
+			get
+			{
+				if (this.XDictionary == null)
+				{
+					return null;
+				}
+				else if (this.XDictionary.TryGetEntry(EvaluationGraph.DictionaryEntryName, out EvaluationGraph table))
+				{
+					return table;
+				}
+				else
+				{
+					return null;
+				}
+			}
+		}
+
+		//This seems to be the right way to set the flags for the block records
+		public new BlockTypeFlags Flags { get { return this.BlockEntity.Flags; } set { this.BlockEntity.Flags = value; } }
+
+		/// <summary>
+		/// Flag indicating if the Block has Attributes attached
+		/// </summary>
+		public bool HasAttributes
+		{
+			get
+			{
+				return this.Entities.OfType<AttributeDefinition>().Any();
+			}
+		}
+
+		/// <summary>
+		/// Blocks with the anonymous flag set are managed by this library or the editing software,
+		/// this may affect the entities or the block properties.
+		/// </summary>
+		public bool IsAnonymous
+		{
+			get
+			{
+				return (this.Flags & BlockTypeFlags.Anonymous) != 0;
+			}
+			set
+			{
+				if (value)
+				{
+					this.Flags |= BlockTypeFlags.Anonymous;
+				}
+				else
+				{
+					this.Flags &= ~BlockTypeFlags.Anonymous;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Active flag if it has an <see cref="Objects.Evaluations.EvaluationGraph"/> attached to it with dynamic expressions.
+		/// </summary>
+		public bool IsDynamic
+		{
+			get
+			{
+				return this.EvaluationGraph != null;
+			}
+		}
+
+		/// <summary>
+		/// Specifies whether the block can be exploded.
+		/// </summary>
+		[DxfCodeValue(DxfReferenceType.Optional, 280)]
+		public bool IsExplodable { get; set; }
 
 		/// <summary>
 		/// Associated Layout.
@@ -121,46 +201,20 @@ namespace ACadSharp.Tables
 			}
 		}
 
-		/// <summary>
-		/// Attribute definitions in this block
-		/// </summary>
-		public IEnumerable<AttributeDefinition> AttributeDefinitions
-		{
-			get
-			{
-				return this.Entities.OfType<AttributeDefinition>();
-			}
-		}
+		/// <inheritdoc/>
+		public override string ObjectName => DxfFileToken.TableBlockRecord;
+
+		/// <inheritdoc/>
+		public override ObjectType ObjectType => ObjectType.BLOCK_HEADER;
 
 		/// <summary>
-		/// Flag indicating if the Block has Attributes attached
-		/// </summary>
-		public bool HasAttributes
-		{
-			get
-			{
-				return this.Entities.OfType<AttributeDefinition>().Any();
-			}
-		}
-
-		/// <summary>
-		/// ViewPorts attached to this block
-		/// </summary>
-		public IEnumerable<Viewport> Viewports
-		{
-			get
-			{
-				return this.Entities.OfType<Viewport>();
-			}
-		}
-
-		/// <summary>
-		/// Entities owned by this block.
+		/// DXF: Binary data for bitmap preview.
 		/// </summary>
 		/// <remarks>
-		/// Entities with an owner cannot be added to another block.
+		/// Optional
 		/// </remarks>
-		public CadObjectCollection<Entity> Entities { get; private set; }
+		[DxfCodeValue(DxfReferenceType.Optional, 310)]
+		public byte[] Preview { get; set; }
 
 		/// <summary>
 		/// Sort entities table for this block record.
@@ -184,44 +238,46 @@ namespace ACadSharp.Tables
 			}
 		}
 
+		/// <inheritdoc/>
+		public override string SubclassMarker => DxfSubclassMarker.BlockRecord;
+
 		/// <summary>
-		/// Block entity for this record
+		/// Block insertion units
 		/// </summary>
-		public Block BlockEntity
+		// [DxfCodeValue(70)]	//Table entry uses flags and has the same code but dwg saves also the block record flags
+		public UnitsType Units { get; set; }
+
+		/// <summary>
+		/// ViewPorts attached to this block
+		/// </summary>
+		public IEnumerable<Viewport> Viewports
 		{
-			get { return this._blockEntity; }
-			internal set
+			get
 			{
-				this._blockEntity = value;
-				this._blockEntity.Owner = this;
+				return this.Entities.OfType<Viewport>();
 			}
 		}
 
 		/// <summary>
-		/// End block entity for this Block record.
+		/// Prefix used for naming any anonymous block managed by ACadSharp.
 		/// </summary>
-		public BlockEnd BlockEnd
-		{
-			get { return this._blockEnd; }
-			internal set
-			{
-				this._blockEnd = value;
-				this._blockEnd.Owner = this;
-			}
-		}
+		public const string AnonymousPrefix = "*A";
 
-		private Block _blockEntity;
+		/// <summary>
+		/// Default block record name for the model space
+		/// </summary>
+		public const string ModelSpaceName = "*Model_Space";
+
+		/// <summary>
+		/// Default block record name for the paper space
+		/// </summary>
+		public const string PaperSpaceName = "*Paper_Space";
 
 		private BlockEnd _blockEnd;
 
-		private Layout _layout;
+		private Block _blockEntity;
 
-		internal BlockRecord() : base()
-		{
-			this.BlockEntity = new Block(this);
-			this.BlockEnd = new BlockEnd(this);
-			this.Entities = new CadObjectCollection<Entity>(this);
-		}
+		private Layout _layout;
 
 		/// <summary>
 		/// Default constructor.
@@ -234,8 +290,57 @@ namespace ACadSharp.Tables
 			this.Entities = new CadObjectCollection<Entity>(this);
 		}
 
+		internal BlockRecord() : base()
+		{
+			this.BlockEntity = new Block(this);
+			this.BlockEnd = new BlockEnd(this);
+			this.Entities = new CadObjectCollection<Entity>(this);
+		}
+
+		/// <inheritdoc/>
+		public void ApplyTransform(Transform transform)
+		{
+			foreach (Entity item in this.Entities)
+			{
+				item.ApplyTransform(transform);
+			}
+		}
+
+		/// <inheritdoc/>
+		public override CadObject Clone()
+		{
+			BlockRecord clone = (BlockRecord)base.Clone();
+
+			clone.Layout = null;
+
+			if (this.SortEntitiesTable != null)
+			{
+				clone.CreateSortEntitiesTable();
+			}
+
+			clone.Entities = new CadObjectCollection<Entity>(clone);
+			foreach (var item in this.Entities)
+			{
+				var e = (Entity)item.Clone();
+				clone.Entities.Add(e);
+
+				if (this.SortEntitiesTable != null
+					&& this.SortEntitiesTable.Select(s => s.Entity).Contains(item))
+				{
+					clone.SortEntitiesTable.Add(e, this.SortEntitiesTable.GetSorterHandle(item));
+				}
+			}
+
+			clone.BlockEntity = (Block)this.BlockEntity.Clone();
+			clone.BlockEntity.Owner = clone;
+			clone.BlockEnd = (BlockEnd)this.BlockEnd.Clone();
+			clone.BlockEnd.Owner = clone;
+
+			return clone;
+		}
+
 		/// <summary>
-		/// 
+		/// Create an entity sorter table for this block.
 		/// </summary>
 		/// <returns></returns>
 		public SortEntitiesTable CreateSortEntitiesTable()
@@ -254,29 +359,61 @@ namespace ACadSharp.Tables
 			return table;
 		}
 
-		/// <inheritdoc/>
-		public override CadObject Clone()
+		/// <summary>
+		/// Get the bounding box for all the entities in the block.
+		/// </summary>
+		/// <returns></returns>
+		public BoundingBox GetBoundingBox()
 		{
-			BlockRecord clone = (BlockRecord)base.Clone();
+			return this.GetBoundingBox(true);
+		}
 
-			Layout layout = (Layout)(this.Layout?.Clone());
-			if (layout is not null)
-			{
-				layout.AssociatedBlock = this;
-			}
-
-			clone.Entities = new CadObjectCollection<Entity>(clone);
+		/// <summary>
+		/// Get the bounding box for all the entities in the block.
+		/// </summary>
+		/// <param name="ignoreInfinite">Ignore infinite entities, default: true</param>
+		/// <returns></returns>
+		public BoundingBox GetBoundingBox(bool ignoreInfinite)
+		{
+			BoundingBox box = BoundingBox.Null;
 			foreach (var item in this.Entities)
 			{
-				clone.Entities.Add((Entity)item.Clone());
+				if (item.GetBoundingBox().Extent == BoundingBoxExtent.Infinite
+					&& ignoreInfinite)
+				{
+					continue;
+				}
+
+				box = box.Merge(item.GetBoundingBox());
 			}
 
-			clone.BlockEntity = (Block)this.BlockEntity.Clone();
-			clone.BlockEntity.Owner = clone;
-			clone.BlockEnd = (BlockEnd)this.BlockEnd.Clone();
-			clone.BlockEnd.Owner = clone;
+			return box;
+		}
 
-			return clone;
+		/// <summary>
+		/// Get the entities in this block record sorted by it's handle and the sorter assigned if is present.
+		/// </summary>
+		/// <remarks>
+		/// If the record is not in a document the entities will not be sorted unless there is a
+		/// <see cref="SortEntitiesTable"/> assigned to the block.
+		/// </remarks>
+		/// <returns></returns>
+		public IEnumerable<Entity> GetSortedEntities()
+		{
+			if (this.SortEntitiesTable != null)
+			{
+				return this.Entities.OrderBy(e => e.Handle);
+			}
+
+			List<(ulong, Entity)> entities = new();
+
+			foreach (var entity in this.Entities)
+			{
+				ulong sorter = this.SortEntitiesTable.GetSorterHandle(entity);
+				entities.Add((sorter, entity));
+			}
+
+			return entities.OrderBy(e => e.Item1).Select(e => e.Item2);
 		}
 
 		internal override void AssignDocument(CadDocument doc)

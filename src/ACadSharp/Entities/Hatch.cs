@@ -1,5 +1,6 @@
 ﻿using ACadSharp.Attributes;
 using CSMath;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -73,16 +74,16 @@ namespace ACadSharp.Entities
 		public HatchPatternType PatternType { get; set; }
 
 		/// <summary>
-		/// Hatch pattern angle (pattern fill only)
+		/// Hatch pattern angle (pattern fill only).
 		/// </summary>
 		[DxfCodeValue(DxfReferenceType.IsAngle, 52)]
-		public double PatternAngle { get { return Pattern.Angle; } set { Pattern.Angle = value; } }
+		public double PatternAngle { get; set; }
 
 		/// <summary>
 		/// Hatch pattern scale or spacing(pattern fill only)
 		/// </summary>
 		[DxfCodeValue(41)]
-		public double PatternScale { get { return Pattern.Scale; } set { Pattern.Scale = value; } }
+		public double PatternScale { get; set; }
 
 		//73	For MPolygon, boundary annotation flag:
 		//0 = boundary is not an annotated boundary
@@ -129,6 +130,34 @@ namespace ACadSharp.Entities
 
 		/// <inheritdoc/>
 		public Hatch() : base() { }
+
+		/// <summary>
+		/// Explode the hatch edges into the equivalent entities.
+		/// </summary>
+		/// <returns></returns>
+		public IEnumerable<Entity> Explode()
+		{
+			List<Entity> entities = new List<Entity>();
+
+			foreach (BoundaryPath b in Paths)
+			{
+				foreach (BoundaryPath.Edge e in b.Edges)
+				{
+					entities.Add(e.ToEntity());
+				}
+			}
+
+			return entities;
+		}
+
+		public override void ApplyTransform(Transform transform)
+		{
+			if (this.IsAssociative)
+			{
+			}
+
+			throw new NotImplementedException();
+		}
 
 		/// <inheritdoc/>
 		public override BoundingBox GetBoundingBox()

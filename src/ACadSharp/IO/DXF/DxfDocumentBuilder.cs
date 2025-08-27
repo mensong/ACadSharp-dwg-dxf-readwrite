@@ -26,8 +26,6 @@ namespace ACadSharp.IO.DXF
 
 		public override void BuildDocument()
 		{
-			this.buildDictionaries();
-
 			if (this.ModelSpaceTemplate == null)
 			{
 				BlockRecord record = BlockRecord.ModelSpace;
@@ -37,10 +35,12 @@ namespace ACadSharp.IO.DXF
 			}
 
 			this.ModelSpaceTemplate.OwnedObjectsHandlers.AddRange(this.ModelSpaceEntities);
-			
+
 			this.RegisterTables();
 
 			this.BuildTables();
+
+			this.buildDictionaries();
 
 			//Assign the owners for the different objects
 			foreach (CadTemplate template in this.cadObjectsTemplates.Values)
@@ -86,7 +86,7 @@ namespace ACadSharp.IO.DXF
 						//Entries of the dictionary are assigned in the template
 						break;
 					case CadBlockRecordTemplate record when template.CadObject is Entity entity:
-						record.OwnedObjectsHandlers.Add(entity.Handle);
+						//The entries should be assigned in the blocks or entities section
 						break;
 					case CadPolyLineTemplate pline when template.CadObject is Vertex v:
 						pline.VertexHandles.Add(v.Handle);

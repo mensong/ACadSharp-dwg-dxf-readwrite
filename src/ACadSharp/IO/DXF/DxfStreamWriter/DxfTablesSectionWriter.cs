@@ -1,5 +1,6 @@
 ﻿using ACadSharp.Tables;
 using ACadSharp.Tables.Collections;
+using CSMath;
 using System;
 using System.Linq;
 
@@ -9,9 +10,8 @@ namespace ACadSharp.IO.DXF
 	{
 		public override string SectionName { get { return DxfFileToken.TablesSection; } }
 
-		public DxfTablesSectionWriter(IDxfStreamWriter writer, CadDocument document, CadObjectHolder holder) : base(writer, document, holder)
-		{
-		}
+		public DxfTablesSectionWriter(IDxfStreamWriter writer, CadDocument document, CadObjectHolder objectHolder, DxfWriterConfiguration configuration)
+			: base(writer, document, objectHolder, configuration) { }
 
 		protected override void writeSection()
 		{
@@ -108,7 +108,7 @@ namespace ACadSharp.IO.DXF
 #endif
 			}
 
-			this.writeExtendedData(entry);
+			this.writeExtendedData(entry.ExtendedData);
 		}
 
 		private void writeBlockRecord(BlockRecord block, DxfClassMap map)
@@ -183,7 +183,7 @@ namespace ACadSharp.IO.DXF
 			this._writer.Write(177, style.ExtensionLineColor.GetApproxIndex(), map);
 			this._writer.Write(178, style.TextColor.GetApproxIndex(), map);
 
-			this._writer.Write(179, style.AngularDimensionDecimalPlaces);
+			this._writer.Write(179, style.AngularDecimalPlaces);
 
 			this._writer.Write(271, style.DecimalPlaces);
 			this._writer.Write(272, style.ToleranceDecimalPlaces);
@@ -218,13 +218,14 @@ namespace ACadSharp.IO.DXF
 
 		private void writeLayer(Layer layer, DxfClassMap map)
 		{
+			int index = layer.Color.IsTrueColor ? layer.Color.GetApproxIndex() : layer.Color.Index;
 			if (layer.IsOn)
 			{
-				this._writer.Write(62, layer.Color.Index, map);
+				this._writer.Write(62, index, map);
 			}
 			else
 			{
-				this._writer.Write(62, (short)-layer.Color.Index, map);
+				this._writer.Write(62, -index, map);
 			}
 
 			if (layer.Color.IsTrueColor)
@@ -276,7 +277,7 @@ namespace ACadSharp.IO.DXF
 					}
 
 					this._writer.Write(46, s.Scale);
-					this._writer.Write(50, s.Rotation * MathUtils.DegToRadFactor);
+					this._writer.Write(50, MathHelper.RadToDeg(s.Rotation));
 					this._writer.Write(44, s.Offset.X);
 					this._writer.Write(45, s.Offset.Y);
 					this._writer.Write(9, s.Text);

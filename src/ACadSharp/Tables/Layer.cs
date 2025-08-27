@@ -25,6 +25,11 @@ namespace ACadSharp.Tables
 		/// </summary>
 		public static Layer Default { get { return new Layer(DefaultName); } }
 
+		/// <summary>
+		/// Defpoints layer, this layer usually stores definition points that will not be plot.
+		/// </summary>
+		public static Layer Defpoints { get { return new Layer("defpoints") { PlotFlag = false }; } }
+
 		/// <inheritdoc/>
 		public override ObjectType ObjectType => ObjectType.LAYER;
 
@@ -76,7 +81,7 @@ namespace ACadSharp.Tables
 
 				if (this.Document != null)
 				{
-					this._lineType = this.updateTable(value, this.Document.LineTypes);
+					this._lineType = updateTable(value, this.Document.LineTypes);
 				}
 				else
 				{
@@ -137,7 +142,7 @@ namespace ACadSharp.Tables
 		{
 			base.AssignDocument(doc);
 
-			this._lineType = this.updateTable(this.LineType, doc.LineTypes);
+			this._lineType = updateTable(this.LineType, doc.LineTypes);
 
 			doc.LineTypes.OnRemove += this.tableOnRemove;
 		}

@@ -109,7 +109,7 @@
 		public const string ObjectsSection = "OBJECTS";
 		public const string ObjectDictionary = "DICTIONARY";
 		public const string ObjectDictionaryWithDefault = "ACDBDICTIONARYWDFLT";
-		public const string ObjectAcdbPlaceHolder = "ACDBPLACEHOLDER";
+		public const string ObjectProxyObject = "ACAD_PROXY_OBJECT";
 		public const string ObjectDictionaryVar = "DICTIONARYVAR";
 		public const string ObjectDBColor = "DBCOLOR";
 		public const string ObjectPlotSettings = "PLOTSETTINGS";
@@ -121,14 +121,24 @@
 		public const string ObjectMaterial = "MATERIAL";
 		public const string ObjectMLineStyle = "MLINESTYLE";
 		public const string ObjectPdfDefinition = "PDFDEFINITION";
+		public const string ObjectRasterVariables = "RASTERVARIABLES";
 		public const string ObjectVisualStyle = "VISUALSTYLE";
 		public const string ObjectScale = "SCALE";
 		public const string ObjectSortEntsTable = "SORTENTSTABLE";
 		public const string ObjectXRecord = "XRECORD";
 		public const string ObjectMLeaderContextData = "CONTEXT_DATA";
 		public const string ObjectEvalGraph = "ACAD_EVALUATION_GRAPH";
+		public const string ObjectBlockLinearParameter = "BLOCKLINEARPARAMETER";
 		public const string ObjectBlockVisibilityParameter = "BLOCKVISIBILITYPARAMETER";
+		public const string ObjectBlockBasePointParameter = "BLOCKBASEPOINTPARAMETER";
+		public const string ObjectBlockFlipParameter = "BLOCKFLIPPARAMETER";
+		public const string ObjectBlockFlipAction = "BLOCKFLIPACTION";
 		public const string ObjectTableContent = "TABLECONTENT";
+		public const string ObjectGeoData = "GEODATA";
+		public const string ObjectGroup = "GROUP";
+		public const string ObjectTableStyle = "TABLESTYLE";
+		public const string ObjectCellStyleMap = "CELLSTYLEMAP";
+		public const string ObjectSpatialFilter = "SPATIAL_FILTER";
 
 		#endregion
 	}

@@ -40,7 +40,7 @@ namespace ACadSharp.IO
 
 		public ulong InitialHandSeed { get; set; } = 0;
 
-		protected Dictionary<ulong, CadTemplate> cadObjectsTemplates = new();
+		protected Dictionary<ulong, ICadObjectTemplate> cadObjectsTemplates = new();
 
 		protected Dictionary<ulong, ICadObjectTemplate> templatesMap = new();
 
@@ -71,7 +71,7 @@ namespace ACadSharp.IO
 			}
 		}
 
-		public void AddTemplate(CadTemplate template)
+		public void AddTemplate(ICadObjectTemplate template)
 		{
 			this.addToMap(template);
 
@@ -216,27 +216,27 @@ namespace ACadSharp.IO
 		public void RegisterTables()
 		{
 			this.DocumentToBuild.RegisterCollection(this.AppIds);
+			this.DocumentToBuild.RegisterCollection(this.TextStyles);
 			this.DocumentToBuild.RegisterCollection(this.LineTypesTable);
 			this.DocumentToBuild.RegisterCollection(this.Layers);
-			this.DocumentToBuild.RegisterCollection(this.TextStyles);
 			this.DocumentToBuild.RegisterCollection(this.UCSs);
 			this.DocumentToBuild.RegisterCollection(this.Views);
+			this.DocumentToBuild.RegisterCollection(this.BlockRecords);
 			this.DocumentToBuild.RegisterCollection(this.DimensionStyles);
 			this.DocumentToBuild.RegisterCollection(this.VPorts);
-			this.DocumentToBuild.RegisterCollection(this.BlockRecords);
 		}
 
 		public void BuildTables()
 		{
 			this.BuildTable(this.AppIds);
+			this.BuildTable(this.TextStyles);
 			this.BuildTable(this.LineTypesTable);
 			this.BuildTable(this.Layers);
-			this.BuildTable(this.TextStyles);
 			this.BuildTable(this.UCSs);
 			this.BuildTable(this.Views);
+			this.BuildTable(this.BlockRecords);
 			this.BuildTable(this.DimensionStyles);
 			this.BuildTable(this.VPorts);
-			this.BuildTable(this.BlockRecords);
 		}
 
 		public void Notify(string message, NotificationType notificationType = NotificationType.None, Exception exception = null)

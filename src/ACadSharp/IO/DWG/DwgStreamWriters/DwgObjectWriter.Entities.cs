@@ -17,6 +17,7 @@ namespace ACadSharp.IO.DWG
 			//Ignored Entities
 			switch (entity)
 			{
+				case ProxyEntity:
 				case TableEntity:
 				case UnknownEntity:
 				case Solid3D:
@@ -98,6 +99,9 @@ namespace ACadSharp.IO.DWG
 				case MultiLeader multiLeader:
 					this.writeMultiLeader(multiLeader);
 					break;
+				case PdfUnderlay pdfUnderlay:
+					this.writePdfUnderlay(pdfUnderlay);
+					break;
 				case Point p:
 					this.writePoint(p);
 					break;
@@ -135,7 +139,7 @@ namespace ACadSharp.IO.DWG
 				case Spline spline:
 					this.writeSpline(spline);
 					break;
-				case CadImageBase image:
+				case CadWipeoutBase image:
 					this.writeCadImage(image);
 					break;
 				case TextEntity text:
@@ -187,6 +191,32 @@ namespace ACadSharp.IO.DWG
 			this.registerObject(entity);
 
 			this.writeChildEntities(children, seqend);
+		}
+
+		private void writePdfUnderlay(PdfUnderlay underlay)
+		{
+			this._writer.Write3BitDouble(underlay.Normal);
+
+			this._writer.Write3BitDouble(underlay.InsertPoint);
+
+			this._writer.WriteBitDouble(underlay.Rotation);
+
+			this._writer.WriteBitDouble(underlay.XScale);
+			this._writer.WriteBitDouble(underlay.YScale);
+			this._writer.WriteBitDouble(underlay.ZScale);
+
+			this._writer.WriteByte((byte)underlay.Flags);
+
+			this._writer.WriteByte(underlay.Contrast);
+			this._writer.WriteByte(underlay.Fade);
+
+			this._writer.HandleReference(DwgReferenceType.HardPointer, underlay.Definition);
+
+			this._writer.WriteBitLong(underlay.ClipBoundaryVertices.Count);
+			foreach (var v in underlay.ClipBoundaryVertices)
+			{
+				this._writer.Write2RawDouble(v);
+			}
 		}
 
 		private void writeArc(Arc arc)
@@ -290,6 +320,7 @@ namespace ACadSharp.IO.DWG
 
 			byte flags = 0;
 			flags |= dimension.IsTextUserDefinedLocation ? (byte)0b00 : (byte)0b01;
+			//flags |= 8;
 
 			this._writer.WriteByte(flags);
 
@@ -304,7 +335,7 @@ namespace ACadSharp.IO.DWG
 			//Ins X - scale BD 41 Undoc'd. These apply to the insertion of the
 			//Ins Y - scale BD 42 anonymous block. None of them can be
 			//Ins Z - scale BD 43 dealt with via entget/entmake/entmod.
-			this._writer.Write3BitDouble(new XYZ());
+			this._writer.Write3BitDouble(new XYZ(1));
 			//Ins rotation BD 54 The last 2(43 and 54) are reported by DXFOUT(when not default values).
 			//ALL OF THEM can be set via DXFIN, however.
 			this._writer.WriteBitDouble(0);
@@ -328,9 +359,9 @@ namespace ACadSharp.IO.DWG
 				//Unknown B 73
 				this._writer.WriteBit(value: false);
 				//Flip arrow1 B 74
-				this._writer.WriteBit(value: false);
+				this._writer.WriteBit(dimension.FlipArrow1);
 				//Flip arrow2 B 75
-				this._writer.WriteBit(value: false);
+				this._writer.WriteBit(dimension.FlipArrow2);
 			}
 
 			//Common:
@@ -341,9 +372,7 @@ namespace ACadSharp.IO.DWG
 			//H 3 DIMSTYLE(hard pointer)
 			this._writer.HandleReference(DwgReferenceType.HardPointer, dimension.Style);
 			//H 2 anonymous BLOCK(hard pointer)
-			//TODO: fix annotative dimensions
-			//this._writer.HandleReference(DwgReferenceType.HardPointer, dimension.Block);
-			this._writer.HandleReference(DwgReferenceType.HardPointer, null);
+			this._writer.HandleReference(DwgReferenceType.HardPointer, dimension.Block);
 		}
 
 		private void writeDimensionLinear(DimensionLinear dimension)
@@ -436,7 +465,7 @@ namespace ACadSharp.IO.DWG
 		private void writeEllipse(Ellipse ellipse)
 		{
 			this._writer.Write3BitDouble(ellipse.Center);
-			this._writer.Write3BitDouble(ellipse.EndPoint);
+			this._writer.Write3BitDouble(ellipse.MajorAxisEndPoint);
 			this._writer.Write3BitDouble(ellipse.Normal);
 			this._writer.WriteBitDouble(ellipse.RadiusRatio);
 			this._writer.WriteBitDouble(ellipse.StartParameter);
@@ -507,7 +536,7 @@ namespace ACadSharp.IO.DWG
 				this._writer.WriteBitLong(insert.Attributes.Count);
 			}
 
-			if (insert.ObjectType == ObjectType.MINSERT)
+			if (insert.IsMultiple)
 			{
 				//Common:
 				//Numcols BS 70
@@ -919,7 +948,7 @@ namespace ACadSharp.IO.DWG
 								//endangle BD 51 endangle
 								this._writer.WriteBitDouble(ellispe.EndAngle);
 								//isccw B 73 1 if counter clockwise; otherwise 0
-								this._writer.WriteBit(ellispe.CounterClockWise);
+								this._writer.WriteBit(ellispe.IsCounterclockwise);
 								break;
 							case Hatch.BoundaryPath.Spline splineEdge:
 								//degree BL 94 degree of the spline
@@ -1083,7 +1112,7 @@ namespace ACadSharp.IO.DWG
 			}
 
 			//Hooklineonxdir B hook line is on x direction if 1
-			this._writer.WriteBit(leader.HookLineDirection);
+			this._writer.WriteBit(leader.HookLineDirection == HookLineDirection.Same);
 			//Arrowheadon B arrowhead on indicator
 			this._writer.WriteBit(leader.ArrowHeadEnabled);
 
@@ -1143,7 +1172,7 @@ namespace ACadSharp.IO.DWG
 			this._writer.WriteBitLong((int)multiLeader.PropertyOverrideFlags);
 			//	170 LeaderLineType (short)
 			this._writer.WriteBitShort((short)multiLeader.PathType);
-			//	91  Leade LineColor (Color)
+			//	91  Leader LineColor (Color)
 			this._writer.WriteCmColor(multiLeader.LineColor);
 			//	341 LeaderLineTypeID (handle/LineType)
 			this._writer.HandleReference(DwgReferenceType.HardPointer, multiLeader.LeaderLineType);
@@ -1356,25 +1385,25 @@ namespace ACadSharp.IO.DWG
 				//	- Scaling (using scale vector)
 				//	- Translation (using location)
 				var m4 = annotContext.TransformationMatrix;
-				this._writer.WriteBitDouble(m4.m00);
-				this._writer.WriteBitDouble(m4.m10);
-				this._writer.WriteBitDouble(m4.m20);
-				this._writer.WriteBitDouble(m4.m30);
+				this._writer.WriteBitDouble(m4.M00);
+				this._writer.WriteBitDouble(m4.M10);
+				this._writer.WriteBitDouble(m4.M20);
+				this._writer.WriteBitDouble(m4.M30);
 
-				this._writer.WriteBitDouble(m4.m01);
-				this._writer.WriteBitDouble(m4.m11);
-				this._writer.WriteBitDouble(m4.m21);
-				this._writer.WriteBitDouble(m4.m31);
+				this._writer.WriteBitDouble(m4.M01);
+				this._writer.WriteBitDouble(m4.M11);
+				this._writer.WriteBitDouble(m4.M21);
+				this._writer.WriteBitDouble(m4.M31);
 
-				this._writer.WriteBitDouble(m4.m02);
-				this._writer.WriteBitDouble(m4.m12);
-				this._writer.WriteBitDouble(m4.m22);
-				this._writer.WriteBitDouble(m4.m32);
+				this._writer.WriteBitDouble(m4.M02);
+				this._writer.WriteBitDouble(m4.M12);
+				this._writer.WriteBitDouble(m4.M22);
+				this._writer.WriteBitDouble(m4.M32);
 
-				this._writer.WriteBitDouble(m4.m03);
-				this._writer.WriteBitDouble(m4.m13);
-				this._writer.WriteBitDouble(m4.m23);
-				this._writer.WriteBitDouble(m4.m33);
+				this._writer.WriteBitDouble(m4.M03);
+				this._writer.WriteBitDouble(m4.M13);
+				this._writer.WriteBitDouble(m4.M23);
+				this._writer.WriteBitDouble(m4.M33);
 			}
 			//END IF Has contents block
 			//END IF Has text contents
@@ -1741,8 +1770,8 @@ namespace ACadSharp.IO.DWG
 			this._writer.WriteRawDouble(solid.ThirdCorner.X);
 			this._writer.WriteRawDouble(solid.ThirdCorner.Y);
 			//4th corner 2RD 13
-			this._writer.WriteRawDouble(solid.FirstCorner.X);
-			this._writer.WriteRawDouble(solid.FirstCorner.Y);
+			this._writer.WriteRawDouble(solid.FourthCorner.X);
+			this._writer.WriteRawDouble(solid.FourthCorner.Y);
 
 			//Extrusion BE 210
 			this._writer.WriteBitExtrusion(solid.Normal);
@@ -1752,7 +1781,7 @@ namespace ACadSharp.IO.DWG
 		{
 		}
 
-		private void writeCadImage(CadImageBase image)
+		private void writeCadImage(CadWipeoutBase image)
 		{
 			this._writer.WriteBitLong(image.ClassVersion);
 
